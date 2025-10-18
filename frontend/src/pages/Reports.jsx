@@ -4,6 +4,7 @@ import { axiosInstance } from '../App';
 import { Button } from '../components/ui/button';
 import { toast } from 'sonner';
 import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import '../styles/PageLayout.css';
 import './Reports.css';
@@ -57,12 +58,62 @@ const Reports = () => {
   const exportToPDF = () => {
     const doc = new jsPDF();
     
-    doc.text('Military Armament Report', 20, 20);
-    doc.text(`Report Type: ${reportType}`, 20, 30);
-    doc.text(`Generated: ${new Date().toLocaleDateString('ar-SA')}`, 20, 40);
+    // Add title
+    doc.setFontSize(16);
+    doc.text('تقرير نظام إدارة التسليح', 105, 15, { align: 'center' });
+    doc.setFontSize(12);
+    doc.text(`نوع التقرير: ${getReportTypeName()}`, 105, 25, { align: 'center' });
+    doc.text(`التاريخ: ${new Date().toLocaleDateString('ar-SA')}`, 105, 32, { align: 'center' });
     
     if (reportData) {
-      doc.text(JSON.stringify(reportData, null, 2), 20, 50);
+      let tableData = [];
+      let headers = [];
+      
+      if (reportType === 'inventory') {
+        headers = [['Name', 'Type', 'Quantity', 'Status']];
+        // Ammunition
+        if (reportData.ammunition_count > 0) {
+          doc.text('Ammunition Inventory:', 14, 45);
+        }
+        // Weapons
+        if (reportData.weapons_count > 0) {
+          doc.text('Weapons Summary:', 14, 75);
+          tableData = [
+            ['Total Weapons', reportData.weapons_count],
+            ['Available', reportData.weapon_stats?.available || 0],
+            ['Assigned', reportData.weapon_stats?.assigned || 0],
+            ['Maintenance', reportData.weapon_stats?.maintenance || 0]
+          ];
+          doc.autoTable({
+            startY: 80,
+            head: [['Category', 'Count']],
+            body: tableData,
+          });
+        }
+      } else if (reportType === 'personnel-weapons') {
+        tableData = reportData.map(item => [
+          item.personnel?.name || 'N/A',
+          item.personnel?.rank || 'N/A',
+          item.weapons?.length || 0
+        ]);
+        doc.autoTable({
+          startY: 45,
+          head: [['Name', 'Rank', 'Weapons Count']],
+          body: tableData,
+        });
+      } else if (reportType === 'transactions') {
+        tableData = reportData.slice(0, 20).map(tx => [
+          tx.item_name,
+          tx.transaction_type,
+          tx.quantity || 'N/A',
+          new Date(tx.created_at).toLocaleDateString('ar-SA')
+        ]);
+        doc.autoTable({
+          startY: 45,
+          head: [['Item', 'Type', 'Quantity', 'Date']],
+          body: tableData,
+        });
+      }
     }
     
     doc.save(`report-${reportType}-${Date.now()}.pdf`);
@@ -72,7 +123,34 @@ const Reports = () => {
   const exportToExcel = () => {
     if (!reportData) return;
     
-    const ws = XLSX.utils.json_to_sheet([reportData]);
+    let exportData = [];
+    
+    if (reportType === 'inventory') {
+      exportData = [{
+        'عدد الذخائر': reportData.ammunition_count,
+        'عدد الأسلحة': reportData.weapons_count,
+        'أسلحة متاحة': reportData.weapon_stats?.available,
+        'أسلحة مسلمة': reportData.weapon_stats?.assigned,
+        'أسلحة صيانة': reportData.weapon_stats?.maintenance
+      }];
+    } else if (reportType === 'personnel-weapons') {
+      exportData = reportData.map(item => ({
+        'الاسم': item.personnel?.name,
+        'الرتبة': item.personnel?.rank,
+        'الوحدة': item.personnel?.unit,
+        'عدد الأسلحة': item.weapons?.length
+      }));
+    } else if (reportType === 'transactions') {
+      exportData = reportData.map(tx => ({
+        'الصنف': tx.item_name,
+        'النوع': tx.type === 'ammunition' ? 'ذخيرة' : 'سلاح',
+        'نوع المعاملة': tx.transaction_type,
+        'الكمية': tx.quantity || '-',
+        'التاريخ': new Date(tx.created_at).toLocaleDateString('ar-SA')
+      }));
+    }
+    
+    const ws = XLSX.utils.json_to_sheet(exportData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Report');
     
@@ -83,6 +161,16 @@ const Reports = () => {
   const printReport = () => {
     window.print();
     toast.success('جاري الطباعة...');
+  };
+
+  const getReportTypeName = () => {
+    const names = {
+      'inventory': 'تقرير المخزون',
+      'personnel-weapons': 'تقرير الأسلحة المسلمة',
+      'transactions': 'تقرير المعاملات',
+      'statistics': 'التقرير الإحصائي'
+    };
+    return names[reportType] || reportType;
   };
 
   return (
