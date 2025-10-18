@@ -169,6 +169,10 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
 
 # ==================== Auth Routes ====================
 
+@api_router.get("/")
+async def root():
+    return {"message": "Military Armament Management System API", "status": "active"}
+
 @api_router.post("/auth/register", response_model=User)
 async def register(user_data: UserCreate):
     # Check if username exists
