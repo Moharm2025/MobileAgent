@@ -292,7 +292,205 @@ const Reports = () => {
 
         {reportData && (
           <div className="report-display">
-            <pre className="report-content">{JSON.stringify(reportData, null, 2)}</pre>
+            <div className="report-header-section">
+              <h2 className="report-main-title">{getReportTypeName()}</h2>
+              <p className="report-date">تاريخ الإنشاء: {new Date().toLocaleDateString('ar-SA', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+              })}</p>
+            </div>
+            
+            {reportType === 'inventory' && (
+              <div className="report-content-section">
+                <div className="report-summary">
+                  <div className="summary-item">
+                    <i className="fas fa-boxes" style={{ color: '#4ade80' }}></i>
+                    <div>
+                      <span className="summary-label">أنواع الذخائر</span>
+                      <span className="summary-value">{reportData.ammunition_count}</span>
+                    </div>
+                  </div>
+                  <div className="summary-item">
+                    <i className="fas fa-shield-alt" style={{ color: '#60a5fa' }}></i>
+                    <div>
+                      <span className="summary-label">إجمالي الأسلحة</span>
+                      <span className="summary-value">{reportData.weapons_count}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {reportData.weapon_stats && (
+                  <div className="report-table">
+                    <h3 className="table-title">إحصائيات الأسلحة</h3>
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>الحالة</th>
+                          <th>العدد</th>
+                          <th>النسبة</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td>متاح</td>
+                          <td>{reportData.weapon_stats.available}</td>
+                          <td>{((reportData.weapon_stats.available / reportData.weapon_stats.total) * 100).toFixed(1)}%</td>
+                        </tr>
+                        <tr>
+                          <td>مسلم</td>
+                          <td>{reportData.weapon_stats.assigned}</td>
+                          <td>{((reportData.weapon_stats.assigned / reportData.weapon_stats.total) * 100).toFixed(1)}%</td>
+                        </tr>
+                        <tr>
+                          <td>صيانة</td>
+                          <td>{reportData.weapon_stats.maintenance}</td>
+                          <td>{((reportData.weapon_stats.maintenance / reportData.weapon_stats.total) * 100).toFixed(1)}%</td>
+                        </tr>
+                        <tr className="total-row">
+                          <td><strong>الإجمالي</strong></td>
+                          <td><strong>{reportData.weapon_stats.total}</strong></td>
+                          <td><strong>100%</strong></td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {reportData.low_stock_ammo && reportData.low_stock_ammo.length > 0 && (
+                  <div className="report-alert">
+                    <i className="fas fa-exclamation-triangle"></i>
+                    <div>
+                      <h4>تنبيه: ذخائر منخفضة المخزون</h4>
+                      <p>يوجد {reportData.low_stock_ammo.length} صنف من الذخائر يحتاج إلى إعادة تعبئة</p>
+                      <div className="low-stock-list">
+                        {reportData.low_stock_ammo.map((ammo, idx) => (
+                          <div key={idx} className="low-stock-item">
+                            <span className="ammo-name">{ammo.name}</span>
+                            <span className="ammo-quantity">الكمية المتاحة: {ammo.quantity} {ammo.unit}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {reportType === 'personnel-weapons' && (
+              <div className="report-content-section">
+                <h3 className="table-title">الأسلحة المسلمة للأفراد</h3>
+                <div className="personnel-cards">
+                  {reportData.map((item, idx) => (
+                    <div key={idx} className="personnel-report-card">
+                      <div className="card-header-section">
+                        <div className="personnel-info">
+                          <i className="fas fa-user-shield"></i>
+                          <div>
+                            <h4>{item.personnel?.name}</h4>
+                            <p>{item.personnel?.rank} - {item.personnel?.unit}</p>
+                          </div>
+                        </div>
+                        <div className="weapons-badge">
+                          <i className="fas fa-shield-alt"></i>
+                          {item.weapons?.length || 0}
+                        </div>
+                      </div>
+                      {item.weapons && item.weapons.length > 0 && (
+                        <div className="weapons-list">
+                          {item.weapons.map((weapon, widx) => (
+                            <div key={widx} className="weapon-item">
+                              <span className="weapon-name">{weapon.name}</span>
+                              <span className="weapon-serial">{weapon.serial_number}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {reportType === 'transactions' && (
+              <div className="report-content-section">
+                <h3 className="table-title">سجل المعاملات</h3>
+                <div className="report-table">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>الصنف</th>
+                        <th>النوع</th>
+                        <th>نوع المعاملة</th>
+                        <th>الكمية</th>
+                        <th>الفرد</th>
+                        <th>التاريخ</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {reportData.slice(0, 50).map((tx, idx) => (
+                        <tr key={idx}>
+                          <td>{tx.item_name}</td>
+                          <td>
+                            <span className={`type-badge ${tx.type === 'ammunition' ? 'type-ammo' : 'type-weapon'}`}>
+                              {tx.type === 'ammunition' ? 'ذخيرة' : 'سلاح'}
+                            </span>
+                          </td>
+                          <td>
+                            <span className={`tx-type-badge ${tx.transaction_type === 'وارد' ? 'tx-in' : 'tx-out'}`}>
+                              {tx.transaction_type}
+                            </span>
+                          </td>
+                          <td>{tx.quantity || '-'}</td>
+                          <td>{tx.personnel_name || '-'}</td>
+                          <td>{new Date(tx.created_at).toLocaleDateString('ar-SA')}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {reportType === 'statistics' && (
+              <div className="report-content-section">
+                <h3 className="table-title">الإحصائيات الشاملة</h3>
+                <div className="stats-grid-report">
+                  <div className="stat-card-report">
+                    <i className="fas fa-boxes"></i>
+                    <span className="stat-label">أنواع الذخائر</span>
+                    <span className="stat-value">{reportData.total_ammunition_types}</span>
+                  </div>
+                  <div className="stat-card-report">
+                    <i className="fas fa-shield-alt"></i>
+                    <span className="stat-label">إجمالي الأسلحة</span>
+                    <span className="stat-value">{reportData.total_weapons}</span>
+                  </div>
+                  <div className="stat-card-report">
+                    <i className="fas fa-users"></i>
+                    <span className="stat-label">عدد الأفراد</span>
+                    <span className="stat-value">{reportData.total_personnel}</span>
+                  </div>
+                  <div className="stat-card-report">
+                    <i className="fas fa-exchange-alt"></i>
+                    <span className="stat-label">المعاملات</span>
+                    <span className="stat-value">{reportData.total_transactions}</span>
+                  </div>
+                  <div className="stat-card-report">
+                    <i className="fas fa-check-circle"></i>
+                    <span className="stat-label">أسلحة متاحة</span>
+                    <span className="stat-value">{reportData.available_weapons}</span>
+                  </div>
+                  <div className="stat-card-report">
+                    <i className="fas fa-hand-holding"></i>
+                    <span className="stat-label">أسلحة مسلمة</span>
+                    <span className="stat-value">{reportData.assigned_weapons}</span>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
